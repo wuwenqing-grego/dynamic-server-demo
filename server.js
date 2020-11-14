@@ -21,7 +21,48 @@ var server = http.createServer(function(request, response){
 
   console.log('有个傻子发请求过来啦！路径（带查询参数）为：' + pathWithQuery)
 
-  if (path === '/signup' && method === 'POST') {
+  if (path === '/home.html') {
+    // Home page
+    const cookie = request.headers.cookie
+    const html = fs.readFileSync('./public/home.html').toString()
+    if (cookie) {
+      console.log(cookie)
+      const userid = cookie.split(';').filter(item => item.includes('userid'))[0].split('=')[1]
+      const userArray = JSON.parse(fs.readFileSync('./db/users.json'))
+      const name = userArray.find(user => user.id === +userid).name
+      const string = html.replace('Stranger', `${name}`).replace('Please sign in first', 'Back to sign in')
+      response.write(string)
+      response.end()
+    } else {
+      response.write(html)
+      response.end()
+    }
+  } else if (path === '/signin' && method === 'POST') {
+    // Sign in page
+    response.setHeader('Content-Type', 'text/html;charset=utf-8')
+    const arr = []
+    request.on('data', (chunk) => {
+      arr.push(chunk)
+    })
+    request.on('end', () => {
+      const string = Buffer.concat(arr).toString()
+      const obj = JSON.parse(string)
+      const userArray = JSON.parse(fs.readFileSync('./db/users.json'))
+      const userLogin = userArray.find(user => user.name === obj.name && user.password === obj.password)
+      if (userLogin) {
+        response.statusCode = 200
+        response.setHeader('Set-Cookie', `userid=${userLogin.id}; HttpOnly`)
+        response.write(`find you!`)
+        response.end()
+      } else {
+        response.statusCode = 400
+        response.setHeader('Content-Type', 'text/json;charset=utf-8')
+        response.write(`{"errorCode": 4001}`)
+        response.end()
+      }
+    })
+  } else if (path === '/signup' && method === 'POST') {
+    // Sign up page
     response.setHeader('Content-Type', 'text/html;charset=utf-8')
     const arr = []
     request.on('data', (chunk) => {
@@ -40,10 +81,12 @@ var server = http.createServer(function(request, response){
       console.log(nextUser)
       userArray.push(nextUser)
       fs.writeFileSync('./db/users.json', JSON.stringify(userArray))
+      response.statusCode = 200
+      response.write(`let's signup!`)
+      response.end()
     })
-    response.write(`let's signup!`)
-    response.end()
   } else {
+    // Common pages
     const index = path.lastIndexOf('.')
     const suffix = path.slice(index)
     const contentType = {
