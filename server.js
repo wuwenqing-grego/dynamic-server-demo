@@ -21,28 +21,52 @@ var server = http.createServer(function(request, response){
 
   console.log('有个傻子发请求过来啦！路径（带查询参数）为：' + pathWithQuery)
 
-  const index = path.lastIndexOf('.')
-  const suffix = path.slice(index)
-  const contentType = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'text/javascript',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
+  if (path === '/signup' && method === 'POST') {
+    response.setHeader('Content-Type', 'text/html;charset=utf-8')
+    const arr = []
+    request.on('data', (chunk) => {
+      arr.push(chunk)
+    })
+    request.on('end', () => {
+      const string = Buffer.concat(arr).toString()
+      const obj = JSON.parse(string)
+      const userArray = JSON.parse(fs.readFileSync('./db/users.json'))
+      const lastUser = userArray[userArray.length - 1]
+      const nextUser = {
+        id: lastUser ? lastUser.id + 1 : 1,
+        name: obj.name,
+        password: obj.password
+      }
+      console.log(nextUser)
+      userArray.push(nextUser)
+      fs.writeFileSync('./db/users.json', JSON.stringify(userArray))
+    })
+    response.write(`let's signup!`)
+    response.end()
+  } else {
+    const index = path.lastIndexOf('.')
+    const suffix = path.slice(index)
+    const contentType = {
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.js': 'text/javascript',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+    }
+    response.statusCode = 200
+    response.setHeader('Content-Type', `${contentType[suffix] || 'text/html'};charset=utf-8`)
+  
+    const direc = path === '/' ? '/index.html' : path
+    let content
+    try {
+        content = fs.readFileSync(`./public${direc}`)
+    } catch (error) {
+        content = 'File Not Found!'
+        response.statusCode = 404
+    }
+    response.write(content)
+    response.end()
   }
-  response.statusCode = 200
-  response.setHeader('Content-Type', `${contentType[suffix] || 'text/html'};charset=utf-8`)
-
-  const direc = path === '/' ? '/index.html' : path
-  let content
-  try {
-      content = fs.readFileSync(`./public${direc}`)
-  } catch (error) {
-      content = 'File Not Found!'
-      response.statusCode = 404
-  }
-  response.write(content)
-  response.end()
 
   /******** 代码结束，下面不要看 ************/
 })
