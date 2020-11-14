@@ -25,9 +25,11 @@ var server = http.createServer(function(request, response){
     // Home page
     const cookie = request.headers.cookie
     const html = fs.readFileSync('./public/home.html').toString()
-    if (cookie) {
-      console.log(cookie)
-      const userid = cookie.split(';').filter(item => item.includes('userid'))[0].split('=')[1]
+    console.log(cookie)
+    const sessionid = cookie.split(';').filter(item => item.includes('sessionid'))[0].split('=')[1]
+    const session = JSON.parse(fs.readFileSync('./session.json'))
+    if (sessionid && session[sessionid]) {
+      const userid = session[sessionid].userid
       const userArray = JSON.parse(fs.readFileSync('./db/users.json'))
       const name = userArray.find(user => user.id === +userid).name
       const string = html.replace('Stranger', `${name}`).replace('Please sign in first', 'Back to sign in')
@@ -51,7 +53,11 @@ var server = http.createServer(function(request, response){
       const userLogin = userArray.find(user => user.name === obj.name && user.password === obj.password)
       if (userLogin) {
         response.statusCode = 200
-        response.setHeader('Set-Cookie', `userid=${userLogin.id}; HttpOnly`)
+        const random = Math.random()
+        const session = JSON.parse(fs.readFileSync('./session.json').toString())
+        session[random] = {userid: userLogin.id}
+        fs.writeFileSync('./session.json', JSON.stringify(session))
+        response.setHeader('Set-Cookie', `sessionid=${random}; HttpOnly`)
         response.write(`find you!`)
         response.end()
       } else {
